@@ -179,3 +179,28 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+# CyFinX generated and local data
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.csv
+*.zip
+*.parquet
+
+# Keep ground-truth labels out of the repository
+**/Ground_Truth.csv
+
+# Additional environment files
+.env.*
+!.env.example
+
+# IDE and operating system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+temp/
+tmp/
