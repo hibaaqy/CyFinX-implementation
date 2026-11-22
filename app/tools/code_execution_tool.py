@@ -1,3 +1,15 @@
+"""Read-only CyFinX evidence tools and restricted FAA code execution."""
+
+import ast
+import io
+import json
+import math
+import signal
+import statistics
+import threading
+from contextlib import redirect_stdout
+from datetime import date, datetime, timedelta
+from pathlib import Path
 
 from pathlib import Path
 import sys
@@ -343,3 +355,209 @@ def run_tool(request):
         )
 
     raise ValueError(f"Unknown FAA tool action: {action}")
+
+# ---------------------------------------------------------------------------
+# Restricted Python execution for the FAA Information-Gathering phase.
+# This is a project-level restriction layer, not a hardened security sandbox.
+# Do not execute untrusted code or use this prototype with production data.
+# ---------------------------------------------------------------------------
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import pandas as pd
+
+_SAFE_BUILTINS = {
+    "abs": abs, "all": all, "any": any, "bool": bool, "dict": dict,
+    "enumerate": enumerate, "float": float, "int": int, "len": len,
+    "list": list, "max": max, "min": min, "range": range, "round": round,
+    "set": set, "sorted": sorted, "str": str, "sum": sum, "tuple": tuple,
+    "zip": zip, "print": print, "isinstance": isinstance,
+}
+
+_SAFE_CALL_NAMES = set(_SAFE_BUILTINS) | {
+    "query_evidence", "aggregate_evidence"
+}
+
+_SAFE_CALL_ATTRIBUTES = {
+    # Mapping and sequence operations
+    "get", "items", "keys", "values", "append", "extend", "update",
+    "sort", "count", "index", "copy", "lower", "upper", "strip", "split",
+    "replace", "startswith", "endswith", "join", "tolist",
+    # Pandas constructors and in-memory analysis
+    "DataFrame", "Series", "to_datetime", "to_numeric", "concat",
+    "crosstab", "isna", "notna", "groupby",
+    "agg", "aggregate", "describe", "mean", "median", "min", "max",
+    "sum", "count", "value_counts", "sort_values", "to_dict", "head",
+    "tail", "reset_index", "rename", "dropna", "fillna", "astype",
+    "unique", "nunique", "quantile", "corr", "pivot_table", "round",
+    "between",
+    # Statistics and math
+    "stdev", "variance", "median_low", "median_high", "mode", "sqrt",
+    "log", "log10", "ceil", "floor", "fabs",
+    # Date/time
+    "strptime", "strftime", "isoformat", "date", "total_seconds",
+    # Matplotlib (the executor saves the one permitted figure)
+    "figure", "subplots", "bar", "barh", "hist", "plot", "scatter",
+    "pie", "boxplot", "xlabel", "ylabel", "title", "legend", "grid",
+    "tight_layout", "xticks", "yticks", "axhline", "axvline", "show",
+    "close", "get_fignums", "set_title", "set_xlabel", "set_ylabel",
+    "set_xticks", "set_xticklabels", "tick_params",
+    # JSON serialization
+    "dumps", "loads",
+}
+
+_DENIED_NAMES = {
+    "__import__", "eval", "exec", "compile", "open", "input", "globals",
+    "locals", "vars", "getattr", "setattr", "delattr", "breakpoint",
+    "help", "dir", "memoryview", "type", "object",
+}
+
+_ALLOWED_AST_NODES = (
+    ast.Module, ast.Expr, ast.Assign, ast.AugAssign, ast.Name, ast.Load,
+    ast.Store, ast.Constant, ast.Dict, ast.List, ast.Tuple, ast.Set,
+    ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp,
+    ast.comprehension, ast.Call, ast.keyword, ast.Attribute, ast.Subscript,
+    ast.Slice, ast.BinOp, ast.UnaryOp, ast.BoolOp, ast.Compare, ast.If,
+    ast.For, ast.IfExp, ast.JoinedStr, ast.FormattedValue, ast.Pass,
+    ast.Break, ast.Continue, ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv,
+    ast.Mod, ast.Pow, ast.USub, ast.UAdd, ast.Not, ast.And, ast.Or, ast.Eq,
+    ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE, ast.In, ast.NotIn, ast.Is,
+    ast.IsNot,
+)
+
+
+def validate_generated_code(code):
+    """Reject imports, unsafe builtins, dunder access, and unsupported syntax."""
+    if not isinstance(code, str) or not code.strip():
+        raise ValueError("The FAA generated no Python code.")
+    if len(code) > 25_000:
+        raise ValueError("Generated code exceeds the 25,000-character limit.")
+    try:
+        tree = ast.parse(code, mode="exec")
+    except SyntaxError as error:
+        raise ValueError(f"Generated Python has a syntax error: {error}") from error
+    nodes = list(ast.walk(tree))
+    if len(nodes) > 3_000:
+        raise ValueError("Generated code is too complex (over 3,000 syntax nodes).")
+    for node in nodes:
+        if not isinstance(node, _ALLOWED_AST_NODES):
+            raise ValueError(
+                f"Generated code contains unsupported syntax: {type(node).__name__}"
+            )
+        if isinstance(node, ast.Name):
+            if node.id.startswith("__") or node.id in _DENIED_NAMES:
+                raise ValueError(f"Use of restricted name: {node.id}")
+        if isinstance(node, ast.Attribute) and node.attr.startswith("_"):
+            raise ValueError("Private/dunder attribute access is prohibited.")
+        if isinstance(node, ast.Call):
+            function = node.func
+            if isinstance(function, ast.Name):
+                if function.id not in _SAFE_CALL_NAMES:
+                    raise ValueError(f"Call to unapproved function: {function.id}")
+            elif isinstance(function, ast.Attribute):
+                if function.attr not in _SAFE_CALL_ATTRIBUTES:
+                    raise ValueError(
+                        f"Call to unapproved method/function: {function.attr}"
+                    )
+            else:
+                raise ValueError("Unsupported function call in generated code.")
+    return tree
+
+
+class _ExecutionTimeout(TimeoutError):
+    pass
+
+
+def _run_with_timeout(code_object, namespace, timeout_seconds):
+    """Run generated code with a wall-clock timeout where SIGALRM is available."""
+    if (
+        hasattr(signal, "SIGALRM")
+        and threading.current_thread() is threading.main_thread()
+    ):
+        previous_handler = signal.getsignal(signal.SIGALRM)
+
+        def timeout_handler(signum, frame):
+            raise _ExecutionTimeout(
+                f"Generated code exceeded {timeout_seconds} seconds."
+            )
+
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.setitimer(signal.ITIMER_REAL, timeout_seconds)
+        try:
+            exec(code_object, namespace, namespace)
+        finally:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, previous_handler)
+    else:
+        # Colab/Linux uses SIGALRM. This fallback supports local smoke tests.
+        exec(code_object, namespace, namespace)
+
+
+def execute_generated_code(code, output_dir, timeout_seconds=30, allowed_tables=None):
+    """Execute FAA-generated Python with approved evidence functions.
+
+    The generated code must assign a dictionary to `evidence_results`.
+    At most one matplotlib figure is accepted per investigation step.
+    """
+    tree = validate_generated_code(code)
+    code_object = compile(tree, filename="<faa-generated-code>", mode="exec")
+    plt.close("all")
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    allowed_tables = set(
+        ALLOWED_TABLES.keys() if allowed_tables is None else allowed_tables
+    )
+
+    def restricted_query_evidence(table, *args, **kwargs):
+        if table not in allowed_tables:
+            raise ValueError(f"Table was not selected during Planning: {table}")
+        return query_evidence(table, *args, **kwargs)
+
+    def restricted_aggregate_evidence(table, *args, **kwargs):
+        if table not in allowed_tables:
+            raise ValueError(f"Table was not selected during Planning: {table}")
+        return aggregate_evidence(table, *args, **kwargs)
+
+    namespace = {
+        "__builtins__": _SAFE_BUILTINS,
+        "query_evidence": restricted_query_evidence,
+        "aggregate_evidence": restricted_aggregate_evidence,
+        "pd": pd,
+        "plt": plt,
+        "statistics": statistics,
+        "math": math,
+        "date": date,
+        "datetime": datetime,
+        "timedelta": timedelta,
+        "json": json,
+    }
+    captured_output = io.StringIO()
+    try:
+        with redirect_stdout(captured_output):
+            _run_with_timeout(code_object, namespace, timeout_seconds)
+        evidence_results = namespace.get("evidence_results")
+        if not isinstance(evidence_results, dict):
+            raise ValueError(
+                "Generated code must assign a dictionary to `evidence_results`."
+            )
+        figure_numbers = plt.get_fignums()
+        if len(figure_numbers) > 1:
+            raise ValueError(
+                "FAA guideline violation: no more than one visualization "
+                "is allowed per investigation step."
+            )
+        chart_path = None
+        if figure_numbers:
+            chart_path = output_dir / "investigation_chart.png"
+            plt.figure(figure_numbers[0]).savefig(
+                chart_path, dpi=160, bbox_inches="tight"
+            )
+        return {
+            "evidence_results": evidence_results,
+            "stdout": captured_output.getvalue(),
+            "chart_path": str(chart_path) if chart_path else None,
+            "generated_code": code,
+        }
+    finally:
+        plt.close("all")

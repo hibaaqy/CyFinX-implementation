@@ -204,3 +204,16 @@ Thumbs.db
 # Temporary files
 temp/
 tmp/
+
+# CyFinX runtime outputs and downloaded model artifacts
+reports/
+*.png
+*.jpg
+*.jpeg
+*.pt
+*.pth
+*.safetensors
+*.bin
+*.model
+huggingface_cache/
+.transformers_cache/
