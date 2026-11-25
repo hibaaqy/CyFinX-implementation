@@ -3,6 +3,7 @@
 import argparse
 import json
 import re
+from time import perf_counter
 from pathlib import Path
 
 from app.agents import (
@@ -13,6 +14,7 @@ from app.agents import (
     VisionAgent,
 )
 from app.tools.function_calling_tool import FunctionCallingTool
+from app.utils.performance_metrics import summarize_model_calls
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -62,6 +64,17 @@ def run_investigation(
         handler=vision_agent.analyze,
     )
 
+    # Capture per-investigation model telemetry. Gemma is loaded once and may
+    # be reused across several alerts in a benchmark run.
+    call_metrics = getattr(gemma_client, "call_metrics", [])
+    first_call_index = len(call_metrics)
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
+    except Exception:
+        torch = None
+
     faa = FraudAnalystAssistant(
         gemma_client=gemma_client,
         report_generator=report_generator,
@@ -70,13 +83,52 @@ def run_investigation(
         step_output_dir=ROOT / "reports" / "step_artifacts",
     )
 
+    framework_started = perf_counter()
     result = faa.investigate(alert_id=alert_id, max_steps=max_steps)
+    framework_elapsed = perf_counter() - framework_started
 
+    evidence_evaluation_seconds = 0.0
     if evaluate_evidence and result["status"] == "completed":
         evaluator = EvidenceQualityEvaluator(gemma_client)
+        evaluation_started = perf_counter()
         result["evidence_quality_evaluation"] = evaluator.evaluate(
             result["reports"]["unfiltered_report"]
         )
+        evidence_evaluation_seconds = perf_counter() - evaluation_started
+
+    new_calls = list(getattr(gemma_client, "call_metrics", []))[first_call_index:]
+    performance = summarize_model_calls(new_calls)
+    performance.update({
+        "framework_wall_time_seconds": round(framework_elapsed, 3),
+        "optional_evidence_evaluation_seconds": round(evidence_evaluation_seconds, 3),
+        "investigation_step_count": len(result.get("steps", [])),
+        "information_gathering_execution_seconds": round(
+            sum(
+                float(step.get("information_gathering_execution_seconds") or 0)
+                for step in result.get("steps", [])
+            ),
+            3,
+        ),
+        "code_generation_retry_count": sum(
+            max(int(step.get("code_generation_attempts", 1)) - 1, 0)
+            for step in result.get("steps", [])
+        ),
+        "vision_agent_invocations": sum(
+            1 for step in result.get("steps", []) if step.get("vision_agent_invoked")
+        ),
+        "model_load": getattr(gemma_client, "load_metrics", {}),
+    })
+    try:
+        if torch is not None and torch.cuda.is_available():
+            performance["run_peak_gpu_memory_allocated_gib"] = round(
+                torch.cuda.max_memory_allocated() / (1024 ** 3), 3
+            )
+            performance["run_peak_gpu_memory_reserved_gib"] = round(
+                torch.cuda.max_memory_reserved() / (1024 ** 3), 3
+            )
+    except Exception:
+        pass
+    result["performance_metrics"] = performance
 
     safe_alert_id = re.sub(r"[^A-Za-z0-9_.-]", "_", alert_id)
     output_dir = ROOT / "reports" / safe_alert_id

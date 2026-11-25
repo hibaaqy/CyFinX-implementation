@@ -2,6 +2,8 @@
 
 import json
 
+from app.utils.model_output import generate_with_stage
+
 
 class ReportGenerator:
     def __init__(self, gemma_client):
@@ -34,7 +36,9 @@ Use clear language suitable for an investigator reviewing the case.
 INVESTIGATION DATA:
 {json.dumps(context, indent=2, default=str)}
 """.strip()
-        return self.gemma.generate(prompt, max_new_tokens=3000).strip()
+        return generate_with_stage(
+            self.gemma, "RGA Stage 1 - unfiltered report", prompt, max_new_tokens=3000
+        ).strip()
 
     def generate_final_report(self, unfiltered_report):
         """Stage 2: extract the evidence most important to legitimacy assessment."""
@@ -54,7 +58,9 @@ direction. Do not make the Detective Agent's final decision.
 UNFILTERED REPORT:
 {unfiltered_report}
 """.strip()
-        return self.gemma.generate(prompt, max_new_tokens=1800).strip()
+        return generate_with_stage(
+            self.gemma, "RGA Stage 2 - concise report", prompt, max_new_tokens=1800
+        ).strip()
 
     def generate_reports(self, alert, transaction, investigation_steps):
         unfiltered = self.generate_unfiltered_report(

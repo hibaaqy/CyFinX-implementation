@@ -1,5 +1,7 @@
 """Conditional chart-analysis agent used when an FAA step creates a plot."""
 
+from app.utils.model_output import generate_image_with_stage
+
 
 class VisionAgent:
     def __init__(self, gemma_client):
@@ -26,7 +28,9 @@ INVESTIGATIVE LEAD:
 Return a concise chart interpretation that the Fraud Analyst Assistant can
 integrate into its Analysis phase.
 """.strip()
-        return self.gemma.generate_with_image(
+        return generate_image_with_stage(
+            self.gemma,
+            "Vision Agent",
             chart_path,
             prompt,
             max_new_tokens=700,

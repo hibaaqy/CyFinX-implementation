@@ -1,6 +1,6 @@
 """Optional FAA report-evidence quality evaluation from the paper's experiment."""
 
-from app.utils.model_output import extract_json_object
+from app.utils.model_output import extract_json_object, generate_with_stage
 
 
 LIKERT_VALUES = {
@@ -65,7 +65,12 @@ UNFILTERED INVESTIGATION REPORT:
 """.strip()
 
         result = extract_json_object(
-            self.gemma.generate(prompt, max_new_tokens=2400)
+            generate_with_stage(
+                self.gemma,
+                "Evidence Quality Evaluation",
+                prompt,
+                max_new_tokens=2400,
+            )
         )
         evaluations = result.get("report_evaluation")
         if not isinstance(evaluations, list):

@@ -1,6 +1,6 @@
 """Final fraud/legitimate decision agent in the FAA workflow."""
 
-from app.utils.model_output import extract_json_object
+from app.utils.model_output import extract_json_object, generate_with_stage
 
 
 class DetectiveAgent:
@@ -36,7 +36,9 @@ FINAL RGA REPORT:
 {final_rga_report}
 """.strip()
 
-        response = self.gemma.generate(prompt, max_new_tokens=800)
+        response = generate_with_stage(
+            self.gemma, "Detective Agent", prompt, max_new_tokens=800
+        )
         return self._validate_result(extract_json_object(response))
 
     @staticmethod

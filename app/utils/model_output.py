@@ -48,3 +48,33 @@ def extract_python_code(text):
         if lines and lines[-1].strip() == "```":
             cleaned = "\n".join(lines[1:-1]).strip()
     return cleaned
+
+
+def generate_with_stage(client, stage, prompt, max_new_tokens=512):
+    """Call a text model and label the call when telemetry is supported.
+
+    Lightweight fake clients used by the unit tests need only implement
+    ``generate(prompt, max_new_tokens=...)``; the production Gemma client also
+    records the supplied stage name and token/latency/GPU metrics.
+    """
+    tracked = getattr(client, "generate_with_stage", None)
+    if callable(tracked):
+        return tracked(stage=stage, prompt=prompt, max_new_tokens=max_new_tokens)
+    return client.generate(prompt, max_new_tokens=max_new_tokens)
+
+
+def generate_image_with_stage(
+    client, stage, image_path, prompt, max_new_tokens=512
+):
+    """Call a multimodal model with an explicit telemetry stage label."""
+    tracked = getattr(client, "generate_image_with_stage", None)
+    if callable(tracked):
+        return tracked(
+            stage=stage,
+            image_path=image_path,
+            prompt=prompt,
+            max_new_tokens=max_new_tokens,
+        )
+    return client.generate_with_image(
+        image_path, prompt, max_new_tokens=max_new_tokens
+    )

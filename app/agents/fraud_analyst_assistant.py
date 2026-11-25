@@ -2,9 +2,14 @@
 
 import json
 from pathlib import Path
+from time import perf_counter
 
 from app.tools import code_execution_tool
-from app.utils.model_output import extract_json_object, extract_python_code
+from app.utils.model_output import (
+    extract_json_object,
+    extract_python_code,
+    generate_with_stage,
+)
 
 
 class FraudAnalystAssistant:
@@ -91,7 +96,10 @@ class FraudAnalystAssistant:
                 "step_number": step_number,
                 "planning": plan,
                 "evidence": gathering.get("evidence_results", {}),
+                "information_gathering_execution_seconds": gathering.get("execution_seconds"),
+                "code_generation_attempts": gathering.get("code_generation_attempts", 1),
                 "vision_analysis": vision_analysis,
+                "vision_agent_invoked": bool(chart_path),
                 "analysis": analysis,
             }
             steps.append(report_step)
@@ -309,18 +317,28 @@ SCHEMAS FOR SELECTED TABLES:
 {json.dumps(selected_schemas, indent=2, default=str)}
 """.strip()
 
-        code = extract_python_code(self.gemma.generate(prompt, max_new_tokens=1800))
+        code = extract_python_code(
+            generate_with_stage(
+                self.gemma, "FAA Information-Gathering code", prompt, max_new_tokens=1800
+            )
+        )
         step_dir = self.step_output_dir / str(case_context["alert"]["Alert_ID"]) / f"step_{step_number}"
 
         last_error = None
         for attempt in range(self.code_retries + 1):
             try:
-                return self.tool.execute_generated_code(
+                execution_started = perf_counter()
+                execution_result = self.tool.execute_generated_code(
                     code=code,
                     output_dir=step_dir,
                     timeout_seconds=30,
                     allowed_tables=plan["tables_to_inspect"],
                 )
+                execution_result["execution_seconds"] = round(
+                    perf_counter() - execution_started, 3
+                )
+                execution_result["code_generation_attempts"] = attempt + 1
+                return execution_result
             except Exception as error:
                 last_error = error
                 if attempt >= self.code_retries:
@@ -347,7 +365,12 @@ SCHEMAS:
 {json.dumps(selected_schemas, indent=2, default=str)}
 """.strip()
                 code = extract_python_code(
-                    self.gemma.generate(correction_prompt, max_new_tokens=1800)
+                    generate_with_stage(
+                        self.gemma,
+                        "FAA Information-Gathering code repair",
+                        correction_prompt,
+                        max_new_tokens=1800,
+                    )
                 )
 
         raise RuntimeError(
@@ -421,7 +444,9 @@ INVESTIGATION CONTEXT:
         return result
 
     def _generate_json(self, prompt, phase_name):
-        raw = self.gemma.generate(prompt, max_new_tokens=1600)
+        raw = generate_with_stage(
+            self.gemma, phase_name, prompt, max_new_tokens=1600
+        )
         try:
             return extract_json_object(raw)
         except ValueError as first_error:
@@ -435,5 +460,7 @@ VALIDATION ERROR:
 PREVIOUS RESPONSE:
 {raw}
 """.strip()
-            repaired = self.gemma.generate(repair_prompt, max_new_tokens=1600)
+            repaired = generate_with_stage(
+                self.gemma, f"{phase_name} JSON repair", repair_prompt, max_new_tokens=1600
+            )
             return extract_json_object(repaired)
