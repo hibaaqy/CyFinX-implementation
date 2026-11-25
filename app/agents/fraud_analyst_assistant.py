@@ -303,6 +303,8 @@ CODE REQUIREMENTS:
 - Do not make a final fraud/legitimate decision.
 - The final code must assign a dictionary to `evidence_results`.
 - Return Python code only, without Markdown fences or explanation.
+- Do NOT use try, except, finally, raise, assert, with, while, def, class, or lambda statements.
+- Do NOT wrap database queries or calculations in error-handling blocks. If an operation fails, let the error propagate so the execution tool can report it.
 
 SELECTED PLANNING RESULT:
 {json.dumps(plan, indent=2, default=str)}
@@ -347,6 +349,11 @@ SCHEMAS FOR SELECTED TABLES:
 The previous FAA-generated Information-Gathering code failed validation or
 execution. Correct the code while preserving the SAME selected investigative
 lead. Do not broaden the scope or invent evidence.
+IMPORTANT RESTRICTION:
+The restricted Python validator does not support the Python Try syntax
+(try/except/finally). Remove all try/except/finally blocks completely.
+Do not replace them with other unsupported syntax. Call database functions
+directly and let errors propagate to the execution tool.
 
 ERROR:
 {type(error).__name__}: {error}
