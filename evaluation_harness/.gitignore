@@ -1,0 +1,52 @@
+# The original input tree is preserved locally but is not part of this clean bundle.
+/evaluation_harness/
+
+# Authorized private evaluation data.
+/snapshots/
+/ground_truth/
+
+# Local runs, intermediate outputs, and raw model responses.
+/results/
+/results_*/
+/results*/
+raw/
+*.jsonl
+*.log
+
+# Python and test artifacts.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage*
+
+# Environments, local configuration, and credentials.
+.venv/
+venv/
+env/
+.env
+.env.*
+.vscode/
+*.pem
+*.key
+credentials.json
+secrets.json
+
+# Models and checkpoints.
+.cache/
+.huggingface/
+models/
+checkpoints/
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.bin
+
+# Backups, temporary files, and explicitly excluded experiments.
+*.bak
+*.before_*
+*.orig
+*.tmp
+pilot_diagnostics.zip
+ministral_smoke_test.csv
+=0.46.1

@@ -1,0 +1,12 @@
+Task: Evidence analysis.
+
+Analyze the supplied case-time evidence for patterns relevant to fraud.
+Distinguish direct observations from interpretations.
+Every finding must cite at least one evidence reference from the snapshot.
+Do not invent relationships or claim certainty beyond the evidence.
+Respond only with the JSON object defined by analysis_schema.json.
+
+Evidence references must be record identifiers copied exactly from the evidence JSON: the string value of an identifier field such as Transaction_ID, Auth_event_ID, Alert_ID, Session_ID, Device_ID or Beneficiary_ID. Cite the identifier value only, never field names, timestamps, amounts or record text, and never several fields in one string. Do not cite Case_ID, Customer_ID or Receiver_ID values. Cite only the few records that directly support a finding (usually 1 to 5 per list). Do not list records merely because they exist, and never write out runs of consecutive identifiers.
+
+Evidence JSON:
+{evidence_json}

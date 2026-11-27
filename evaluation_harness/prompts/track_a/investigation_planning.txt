@@ -1,0 +1,14 @@
+Task: Investigation planning.
+
+You are planning the next investigation steps for this financial-fraud case.
+Select an ordered, evidence-grounded plan using only evidence sources available in the snapshot.
+Prefer steps that can confirm or disprove the concerns already supported by evidence.
+Select each step.action only from the approved action names in planning_schema.json.
+Do not invent tools, database APIs, private communications, or future evidence sources.
+Do not request private messages, future evidence, investigator conclusions, or ground-truth labels.
+Respond only with the JSON object defined by planning_schema.json.
+
+Evidence references must be record identifiers copied exactly from the evidence JSON: the string value of an identifier field such as Transaction_ID, Auth_event_ID, Alert_ID, Session_ID, Device_ID or Beneficiary_ID. Cite the identifier value only, never field names, timestamps, amounts or record text, and never several fields in one string. Do not cite Case_ID, Customer_ID or Receiver_ID values. Cite only the few records that directly support a finding (usually 1 to 5 per list). Do not list records merely because they exist, and never write out runs of consecutive identifiers.
+
+Evidence JSON:
+{evidence_json}

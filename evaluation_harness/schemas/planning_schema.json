@@ -1,0 +1,103 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "Investigation plan",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "case_id",
+  "priority",
+  "steps",
+  "expected_evidence",
+  "uncertainty_reduction",
+  "evidence_references"
+ ],
+ "properties": {
+  "case_id": {
+   "type": "string",
+   "minLength": 1
+  },
+  "priority": {
+   "type": "string",
+   "enum": [
+    "low",
+    "medium",
+    "high",
+    "urgent"
+   ]
+  },
+  "steps": {
+   "type": "array",
+   "minItems": 1,
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "order",
+     "action",
+     "purpose",
+     "evidence_references"
+    ],
+    "properties": {
+     "order": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "action": {
+      "type": "string",
+      "enum": [
+       "review_transaction_history",
+       "review_authentication_logs",
+       "review_biometric_logs",
+       "review_network_sessions",
+       "review_device_bindings",
+       "review_beneficiary_history",
+       "review_kyc_records",
+       "review_complaint_details",
+       "review_alert_details",
+       "compare_account_activity",
+       "escalate_for_human_review"
+      ]
+     },
+     "purpose": {
+      "type": "string",
+      "minLength": 1
+     },
+     "evidence_references": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+       "type": "string",
+       "minLength": 1
+      },
+      "description": "Record identifiers only: the exact string value of an ID field from the evidence JSON, one per item. Only the few records that directly support the finding (at most 10). Never a run of consecutive identifiers.",
+      "maxItems": 10
+     }
+    }
+   }
+  },
+  "expected_evidence": {
+   "type": "array",
+   "minItems": 1,
+   "items": {
+    "type": "string",
+    "minLength": 1
+   }
+  },
+  "uncertainty_reduction": {
+   "type": "string",
+   "minLength": 1
+  },
+  "evidence_references": {
+   "type": "array",
+   "minItems": 1,
+   "uniqueItems": true,
+   "items": {
+    "type": "string",
+    "minLength": 1
+   },
+   "description": "Record identifiers only: the exact string value of an ID field from the evidence JSON, one per item. Only the few records that directly support the finding (at most 10). Never a run of consecutive identifiers.",
+   "maxItems": 10
+  }
+ }
+}

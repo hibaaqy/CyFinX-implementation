@@ -179,3 +179,7 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Local private evaluation datasets; obtain these only through authorized channels.
+/CyFinX_2500_Final/
+/cyfinx_normal_population/

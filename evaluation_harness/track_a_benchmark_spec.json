@@ -1,0 +1,63 @@
+{
+  "benchmark": "CyFinX Track A",
+  "dataset_version": "CyFinX_V3_2500_210_cases",
+  "dataset_freeze": "track_a_dataset_manifest.json",
+  "snapshot_manifest": "snapshot_manifest.json",
+  "ground_truth": "ground_truth/Ground_Truth.csv",
+  "ground_truth_policy": "Never include ground truth in model prompts or snapshot JSON.",
+  "approved_action_catalogue": "schemas/approved_action_catalogue.json",
+  "tasks": [
+    {
+      "name": "initial_assessment",
+      "prompt": "prompts/track_a/initial_assessment.txt",
+      "schema": "schemas/assessment_schema.json"
+    },
+    {
+      "name": "investigation_planning",
+      "prompt": "prompts/track_a/investigation_planning.txt",
+      "schema": "schemas/planning_schema.json"
+    },
+    {
+      "name": "evidence_analysis",
+      "prompt": "prompts/track_a/evidence_analysis.txt",
+      "schema": "schemas/analysis_schema.json"
+    },
+    {
+      "name": "investigation_decision",
+      "prompt": "prompts/track_a/investigation_decision.txt",
+      "schema": "schemas/decision_schema.json"
+    },
+    {
+      "name": "final_reporting",
+      "prompt": "prompts/track_a/final_reporting.txt",
+      "schema": "schemas/report_schema.json"
+    }
+  ],
+  "evidence_rule": "Use the complete frozen snapshot JSON verbatim as the evidence payload for every model.",
+  "prompt_rule": "Replace only {evidence_json}; all task instructions and JSON schemas remain identical across models.",
+  "generation_settings": {
+    "thinking_mode": "Use each model's supported explicit setting consistently.",
+    "temperature": "Set once before the pilot and freeze for the full benchmark.",
+    "top_p": "Set once before the pilot and freeze for the full benchmark.",
+    "max_output_tokens": "Set once before the pilot and freeze for the full benchmark."
+  },
+  "pilot_cases": [
+    "CASE0000001",
+    "CASE0000002",
+    "CASE0000003",
+    "CASE0000004",
+    "CASE0000007",
+    "CASE0000008",
+    "CASE0000009",
+    "CASE0000010",
+    "CASE0000012",
+    "CASE0000014"
+  ],
+  "pilot_requirements": [
+    "Include representative alert-originated and complaint-originated cases.",
+    "Test JSON validity on every task response.",
+    "Test evidence references against snapshot record IDs.",
+    "Record raw response, latency, generated tokens, prompt tokens, GPU memory and errors.",
+    "Do not tune prompts using pilot results that would leak ground-truth labels."
+  ]
+}

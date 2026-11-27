@@ -1,0 +1,23 @@
+{
+  "catalogue_version": "1.0",
+  "scope": "Track A evidence-review and case-routing recommendations",
+  "approved_actions": [
+    "review_transaction_history",
+    "review_authentication_logs",
+    "review_biometric_logs",
+    "review_network_sessions",
+    "review_device_bindings",
+    "review_beneficiary_history",
+    "review_kyc_records",
+    "review_complaint_details",
+    "review_alert_details",
+    "compare_account_activity",
+    "escalate_for_human_review"
+  ],
+  "constraints": [
+    "Actions are evidence-review or case-review decisions only.",
+    "No private-message access or future evidence is approved.",
+    "This catalogue describes benchmark-planning capabilities, not a claim that external tools already exist in an application branch.",
+    "escalate_for_human_review may be selected when evidence warrants qualified review."
+  ]
+}

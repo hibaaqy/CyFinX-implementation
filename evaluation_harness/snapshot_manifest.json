@@ -1,0 +1,9 @@
+{
+  "dataset": "CyFinX_2500_Final\\investigations",
+  "case_count": 210,
+  "snapshot_count": 210,
+  "alert_originated_cases": 120,
+  "complaint_originated_cases": 90,
+  "validation_errors": [],
+  "ground_truth_file": "evaluation_harness\\ground_truth\\Ground_Truth.csv"
+}

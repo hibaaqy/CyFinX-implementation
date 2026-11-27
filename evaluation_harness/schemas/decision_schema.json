@@ -1,0 +1,53 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "Investigation decision",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "case_id",
+  "decision",
+  "rationale",
+  "next_review_trigger",
+  "evidence_references",
+  "confidence"
+ ],
+ "properties": {
+  "case_id": {
+   "type": "string",
+   "minLength": 1
+  },
+  "decision": {
+   "type": "string",
+   "enum": [
+    "continue",
+    "stop",
+    "escalate"
+   ]
+  },
+  "rationale": {
+   "type": "string",
+   "minLength": 1
+  },
+  "next_review_trigger": {
+   "type": "string",
+   "minLength": 1
+  },
+  "evidence_references": {
+   "type": "array",
+   "minItems": 1,
+   "uniqueItems": true,
+   "items": {
+    "type": "string",
+    "minLength": 1
+   },
+   "description": "Record identifiers only: the exact string value of an ID field from the evidence JSON, one per item. Only the few records that directly support the finding (at most 10). Never a run of consecutive identifiers.",
+   "maxItems": 10
+  },
+  "confidence": {
+   "type": "number",
+   "minimum": 0,
+   "maximum": 1,
+   "description": "Confidence in the investigation decision based only on evidence available at case creation."
+  }
+ }
+}
